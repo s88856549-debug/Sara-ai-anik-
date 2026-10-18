@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#4f46e5">
+<title>SARA</title>
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--text:#1b1e27;--muted:#6b7280;--accent:#4f46e5;--at:#fff;--border:#e3e5ee;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#12141b;--card:#1c1f2a;--text:#eceef5;--muted:#9aa1b2;--accent:#7c78ff;--at:#10121a;--border:#2b2f3d;color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font-family:"Noto Sans Bengali","Hind Siliguri",system-ui,sans-serif;display:flex;flex-direction:column;line-height:1.6;padding-top:env(safe-area-inset-top,0)}
+header{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--card);border-bottom:1px solid var(--border)}
+.av{width:38px;height:38px;border-radius:50%;background:var(--accent);color:var(--at);display:grid;place-items:center;font-size:20px}
+h1{font-size:18px;margin:0;flex:1;letter-spacing:1px}
+h1 small{display:block;color:var(--muted);font-size:12px;font-weight:400;letter-spacing:0}
+button{font:inherit;cursor:pointer}
+.ib{background:none;border:1px solid var(--border);color:var(--text);border-radius:10px;padding:6px 10px;font-size:15px}
+#chat{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+.m{max-width:86%;padding:10px 13px;border-radius:16px;white-space:pre-wrap;overflow-wrap:anywhere}
+.u{align-self:flex-end;background:var(--accent);color:var(--at);border-bottom-right-radius:4px}
+.b{align-self:flex-start;background:var(--card);border:1px solid var(--border);border-bottom-left-radius:4px}
+.sys{align-self:center;color:var(--muted);font-size:13px;text-align:center}
+.chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.chips button{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:999px;padding:7px 13px;font-size:14px}
+form{display:flex;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom,0));background:var(--card);border-top:1px solid var(--border)}
+textarea,input,select{border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:12px;padding:10px 12px;font:inherit;width:100%}
+form textarea{flex:1;resize:none;max-height:120px;border-radius:14px}
+#send{background:var(--accent);color:var(--at);border:0;border-radius:14px;padding:0 18px;font-weight:600}
+#send:disabled{opacity:.5}
+#mic{font-size:20px;border-radius:14px;padding:0 13px}
+#mic.on{background:var(--accent);color:var(--at);border-color:var(--accent)}
+#set{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);align-items:flex-end;justify-content:center;z-index:5}
+#set.on{display:flex}
+.box{background:var(--card);width:100%;max-width:520px;max-height:92%;overflow-y:auto;border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0));display:flex;flex-direction:column;gap:8px}
+.box label{font-size:13px;color:var(--muted)}
+.row{display:flex;gap:8px}.row button{flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text)}
+.row .pri{background:var(--accent);color:var(--at);border:0;font-weight:600}
+</style>
+</head>
+<body>
+<header>
+  <div class="av">✦</div>
+  <h1>SARA<small>আপনার ব্যক্তিগত এআই সহকারী</small></h1>
+  <button class="ib" id="spk">🔊</button>
+  <button class="ib" id="clr" title="নতুন চ্যাট">↺</button>
+  <button class="ib" id="gear" title="সেটিংস">⚙</button>
+</header>
+<div id="chat"></div>
+<form id="f">
+  <textarea id="t" rows="1" placeholder="কিছু জিজ্ঞেস করুন…"></textarea>
+  <button id="mic" type="button" class="ib" title="ভয়েসে বলুন">🎤</button>
+  <button id="send" type="submit">পাঠান</button>
+</form>
+<div id="set"><div class="box">
+  <label>আমি আপনাকে কী নামে ডাকব?</label><input id="su" maxlength="20" placeholder="বস">
+  <label>মজার মাত্রা</label>
+  <select id="sf"><option value="1">কম</option><option value="2">মাঝারি</option><option value="3">বেশি (খুনসুটি, রোস্ট 😄)</option></select>
+  <label>কণ্ঠ</label>
+  <select id="sv"><option value="f">মহিলা</option><option value="m">পুরুষ</option><option value="d">ফোনের ডিফল্ট</option></select>
+  <label>অ্যাক্সেস কোড (থাকলে)</label><input id="sc" type="password" autocomplete="off">
+  <div class="row"><button id="cancel" type="button">বাতিল</button><button class="pri" id="save" type="button">সংরক্ষণ</button></div>
+</div></div>
+<script>
+const $=id=>document.getElementById(id), chat=$("chat");
+let cfg={uname:"বস",fun:2,vg:"f",talk:true,code:""},hist=[],busy=false,conv=false,rec=null;
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+try{const c=localStorage.getItem("sara_cfg");if(c)cfg={...cfg,...JSON.parse(c)};const h=localStorage.getItem("sara_hist");if(h)hist=JSON.parse(h)}catch(e){}
+function store(){try{localStorage.setItem("sara_cfg",JSON.stringify(cfg));localStorage.setItem("sara_hist",JSON.stringify(hist.slice(-40)))}catch(e){}}
+function add(cls,t){const d=document.createElement("div");d.className="m "+cls;d.textContent=t;chat.appendChild(d);chat.scrollTop=chat.scrollHeight;return d}
+function render(){
+  chat.innerHTML="";
+  if(hist.length){hist.forEach(m=>add(m.role==="user"?"u":"b",m.content));return}
+  const s=document.createElement("div");s.className="sys";s.textContent="আরে "+cfg.uname+"! আমি SARA। বলুন, কী খবর? 😄";chat.appendChild(s);
+  const c=document.createElement("div");c.className="chips";
+  ["আজ মন ভালো নেই","একটা মজার জোক বলো","আজকের প্ল্যান বানিয়ে দাও","আমাকে একটু রোস্ট করো 😅"].forEach(x=>{const b=document.createElement("button");b.type="button";b.textContent=x;b.onclick=()=>{$("t").value=x;send()};c.appendChild(b)});
+  chat.appendChild(c);
+}
+async function send(){
+  const t=$("t"),txt=t.value.trim();
+  if(!txt||busy)return;
+  if(!hist.length)chat.innerHTML="";
+  t.value="";t.style.height="auto";
+  hist.push({role:"user",content:txt});add("u",txt);
+  const out=add("b","…");busy=true;$("send").disabled=true;let rep=null;
+  try{
+    const r=await fetch("/.netlify/functions/chat",{method:"POST",headers:{"content-type":"application/json"},
+      body:JSON.stringify({messages:hist.slice(-20),uname:cfg.uname,fun:cfg.fun,voice:conv,code:cfg.code})});
+    const d=await r.json();
+    if(!r.ok)throw d;
+    out.textContent=d.text;hist.push({role:"assistant",content:d.text});rep=d.text;
+  }catch(e){
+    out.textContent=e&&e.error==="code"?"অ্যাক্সেস কোড লাগবে। ⚙ থেকে কোড দিন।":e&&e.error==="rate"?"একটু পরে আবার চেষ্টা করুন।":"দুঃখিত, উত্তর আনা যায়নি। আবার চেষ্টা করুন।";
+    hist.pop();
+  }
+  store();busy=false;$("send").disabled=false;
+  if(rep)afterReply(rep);else if(conv)stopConv();
+}
+function speak(t){
+  if(!window.speechSynthesis)return;
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(t.replace(/[\p{Extended_Pictographic}\u200d\ufe0f*#_`]/gu,""));
+  u.lang="bn-BD";
+  const bn=speechSynthesis.getVoices().filter(x=>/^bn/i.test(x.lang)),g=cfg.vg;
+  const v=(g==="f"&&bn.find(x=>/female|ফিমেল/i.test(x.name)))||(g==="m"&&bn.find(x=>/\bmale\b/i.test(x.name)&&!/female/i.test(x.name)))||bn[0];
+  if(v)u.voice=v;u.pitch=g==="f"?1.3:g==="m"?0.8:1;
+  u.onend=u.onerror=()=>{if(conv)listen()};
+  speechSynthesis.speak(u);
+}
+function afterReply(t){if(cfg.talk&&window.speechSynthesis)speak(t);else if(conv)listen()}
+function listen(){
+  if(!conv||busy||!SR)return;
+  rec=new SR();rec.lang="bn-BD";rec.interimResults=false;
+  rec.onresult=e=>{$("t").value=e.results[0][0].transcript;send()};
+  rec.onerror=e=>{if(e.error!=="no-speech"&&e.error!=="aborted")add("sys","মাইক চালু হয়নি। ব্রাউজারে মাইকের অনুমতি দিন।");stopConv()};
+  try{rec.start()}catch(e){}
+}
+function stopConv(){conv=false;$("mic").classList.remove("on");try{rec&&rec.abort()}catch(e){}if(window.speechSynthesis)speechSynthesis.cancel()}
+$("mic").onclick=()=>{
+  if(conv){stopConv();return}
+  if(!SR){add("sys","এই ব্রাউজারে ভয়েস ইনপুট নেই। Android-এ Chrome ব্যবহার করুন।");return}
+  conv=true;$("mic").classList.add("on");listen();
+};
+$("spk").textContent=cfg.talk?"🔊":"🔇";
+$("spk").onclick=()=>{cfg.talk=!cfg.talk;store();$("spk").textContent=cfg.talk?"🔊":"🔇";if(!cfg.talk&&window.speechSynthesis)speechSynthesis.cancel()};
+$("f").addEventListener("submit",e=>{e.preventDefault();send()});
+$("t").addEventListener("input",e=>{e.target.style.height="auto";e.target.style.height=Math.min(e.target.scrollHeight,120)+"px"});
+$("clr").onclick=()=>{if(busy)return;hist=[];store();render()};
+$("gear").onclick=()=>{$("su").value=cfg.uname;$("sf").value=cfg.fun;$("sv").value=cfg.vg;$("sc").value=cfg.code;$("set").classList.add("on")};
+$("cancel").onclick=()=>$("set").classList.remove("on");
+$("save").onclick=()=>{cfg.uname=$("su").value.trim()||"বস";cfg.fun=+$("sf").value;cfg.vg=$("sv").value;cfg.code=$("sc").value;store();$("set").classList.remove("on");render()};
+render();
+</script>
+</body>
+</html>
